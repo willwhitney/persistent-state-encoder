@@ -33,9 +33,9 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
         table.insert(encoder_clones, encoder_prototype:clone('weight', 'bias', 'gradWeight', 'gradBias'))
     end
 
-    encoder_clones[1] = encoder_clones[1]{state_initialization_encoder, inputs[2]}:annotate{name="encoder_1"}
+    encoder_clones[1] = encoder_clones[1]{state_initialization_encoder, inputs[2]}:annotate{name="encoder"}
     for i = 2, #encoder_clones do
-        encoder_clones[i] = encoder_clones[i]{encoder_clones[i-1], inputs[i+1]}:annotate{name="encoder_"..i}
+        encoder_clones[i] = encoder_clones[i]{encoder_clones[i-1], inputs[i+1]}:annotate{name="encoder"}
     end
 
     local decoder_clones = {decoder_prototype}
@@ -43,9 +43,9 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
         table.insert(decoder_clones, decoder_prototype:clone('weight', 'bias', 'gradWeight', 'gradBias'))
     end
 
-    decoder_clones[1] = decoder_clones[1](state_initialization_encoder):annotate{name="decoder_1"}
+    decoder_clones[1] = decoder_clones[1](state_initialization_encoder):annotate{name="decoder"}
     for i = 1, #encoder_clones do
-        decoder_clones[i+1] = decoder_clones[i+1](encoder_clones[i]):annotate{name="decoder_"..i}
+        decoder_clones[i+1] = decoder_clones[i+1](encoder_clones[i]):annotate{name="decoder"}
     end
 
     local output = decoder_clones

@@ -5,6 +5,7 @@ require 'MotionBCECriterion'
 
 local Model = require 'AtariModel'
 local data_loaders = require 'data_loaders'
+local utils = require 'utils'
 
 local cmd = torch.CmdLine()
 
@@ -119,6 +120,21 @@ if opt.gpu then
     model:cuda()
     criterion:cuda()
 end
+
+-- local encoders = utils.findModulesByAnnotation(model, 'encoder')
+-- print("Encoders: " .. #encoders)
+-- for i = 2, #encoders do
+--     encoders[i]:share(encoders[1], 'weight', 'bias', 'gradWeight', 'gradBias')
+-- end
+-- collectgarbage()
+
+-- local decoders = utils.findModulesByAnnotation(model, 'decoder')
+-- print("Decoders: " .. #decoders)
+-- for i = 2, #decoders do
+--     decoders[i]:share(decoders[1], 'weight', 'bias', 'gradWeight', 'gradBias')
+-- end
+-- collectgarbage()
+
 params, grad_params = model:getParameters()
 
 
@@ -193,6 +209,8 @@ for step = 1, iterations do
     local _, loss = optim.rmsprop(feval, params, optim_state)
 
     local time = timer:time().real
+
+    -- print(cutorch.getMemoryUsage(cutorch.getDevice()))
 
     local train_loss = loss[1] -- the loss is inside a list, pop it
     train_losses[step] = train_loss

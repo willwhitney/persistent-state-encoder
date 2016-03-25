@@ -54,8 +54,8 @@ function data_loaders.load_atari_batch(id, mode)
 
     local inputs = {}
     local i = 1
-    -- while i <= data:size(1) do
-    while i <= 10 do
+    while i <= data:size(1) do
+    -- while i <= 10 do
         -- stupid reshape so they still have a batch index
         table.insert(inputs, data[i]:reshape(1, data[i]:size(1), data[i]:size(2), data[i]:size(3)))
         i = i + frame_interval
