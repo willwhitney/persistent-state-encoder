@@ -56,7 +56,9 @@ local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, s
     local change_limiter = nn.ChangeLimiter()({dist, previous_state, encoder}):annotate{name="change_limiter"}
 
     local output = {change_limiter}
-    return nn.gModule(inputs, output)
+    local gmod = nn.gModule(inputs, output)
+    -- print(gmod:getParameters():size())
+    return gmod
 end
 
 return AtariEncoder

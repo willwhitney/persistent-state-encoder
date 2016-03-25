@@ -17,6 +17,9 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
     local encoder_prototype = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, num_heads)
     local decoder_prototype = Decoder(dim_hidden, color_channels, feature_maps)
 
+    -- print("encoder prototype params")
+    -- print(encoder_prototype:getParameters():size())
+
     -- local model_prototype = nn.Sequential()
     -- model_prototype:add(encoder_prototype)
     -- model_prototype:add(decoder_prototype)
@@ -45,9 +48,10 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
         decoder_clones[i+1] = decoder_clones[i+1](encoder_clones[i]):annotate{name="decoder_"..i}
     end
 
-    local outputs = decoder_clones
+    local output = decoder_clones
 
-    return nn.gModule(inputs, outputs)
+    collectgarbage()
+    return nn.gModule(inputs, output)
 end
 
 return AtariModel

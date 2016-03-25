@@ -14,7 +14,7 @@ cmd:option('-import', '', 'initialize network parameters from checkpoint at this
 
 -- data
 cmd:option('--datasetdir', '/om/user/wwhitney/deep-game-engine', 'dataset source directory')
-cmd:option('--dataset_name', 'dataset_DQN_breakout_trained', 'dataset source directory')
+cmd:option('--dataset_name', 'breakout', 'dataset source directory')
 cmd:option('--frame_interval', 1, 'the number of timesteps between input[1] and input[2]')
 
 -- optimization
@@ -99,14 +99,16 @@ end
 
 local scheduler_iteration = torch.zeros(1)
 
-model = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, 10)
+local sample_batch = data_loaders.load_random_atari_batch('train')
+local batch_timesteps = #sample_batch
+model = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
 
 -- graph.dot(model.fg, 'atari_model', 'reports/atari_model')
 
 -- [[
 
 if opt.criterion == 'MSE' then
-    criterion = nn.MSECriterion()
+    criterion = nn.CriterionTable(nn.MSECriterion())
 elseif opt.criterion == 'BCE' then
     criterion = nn.MotionBCECriterion(opt.motion_scale)
 else
@@ -156,7 +158,7 @@ function feval(x)
     local output = model:forward(input)
 
     loss = criterion:forward(output, input)
-    local grad_output = criterion:backward(output, input):clone()
+    local grad_output = criterion:backward(output, input)
 
     model:backward(input, grad_output)
 
@@ -174,7 +176,6 @@ function feval(x)
     collectgarbage()
     return loss, grad_params
 end
-
 
 train_losses = {}
 val_losses = {}
