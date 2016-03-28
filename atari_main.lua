@@ -104,10 +104,16 @@ local scheduler_iteration = torch.zeros(1)
 local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
 model = nn.Sequential()
-model:add(Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps))
+encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
+model:add(encoder)
 
-model:add(nn.JoinTable(1))
-model:add(Decoder(opt.dim_hidden, opt.color_channels, opt.feature_maps))
+join = nn.JoinTable(1)
+model:add(join)
+
+decoder = Decoder(opt.dim_hidden, opt.color_channels, opt.feature_maps)
+model:add(decoder)
+
+print(model)
 
 -- graph.dot(model.modules[1].fg, 'atari_multistep_encoder', 'reports/atari_multistep_encoder')
 
