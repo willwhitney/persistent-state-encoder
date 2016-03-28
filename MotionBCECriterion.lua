@@ -31,8 +31,13 @@ end
 function MotionBCECriterion:updateOutput(input, target)
    -- log(input) * target + log(1 - input) * (1 - target)
 
+   -- print(input:size(), target)
+
    if type(input) == 'table' then
       input = self.input_join:forward(input)
+   end
+
+   if type(target) == 'table' then
       target = self.target_join:forward(target)
    end
 
@@ -65,8 +70,12 @@ end
 function MotionBCECriterion:updateGradInput(input, target)
    -- target / input - (1 - target) / (1 - input)
    local original_input = input
+
    if type(input) == 'table' then
       input = self.input_join:forward(input)
+   end
+
+   if type(target) == 'table' then
       target = self.target_join:forward(target)
    end
 

@@ -17,6 +17,10 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
     local encoder_prototype = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, num_heads)
     local decoder_prototype = Decoder(dim_hidden, color_channels, feature_maps)
 
+    if opt.gpu then
+        encoder_prototype:cuda()
+        decoder_prototype:cuda()
+    end
     -- print("encoder prototype params")
     -- print(encoder_prototype:getParameters():size())
 
@@ -30,7 +34,12 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
     -- thus we start with 3
     local encoder_clones = {encoder_prototype}
     for _ = 3, timesteps do
-        table.insert(encoder_clones, encoder_prototype:clone('weight', 'bias', 'gradWeight', 'gradBias'))
+        local clone = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, num_heads)
+        if opt.gpu then
+            clone:cuda()
+        end
+        clone:share(encoder_prototype, 'weight', 'bias', 'gradWeight', 'gradBias')
+        table.insert(encoder_clones, clone)
     end
 
     encoder_clones[1] = encoder_clones[1]{state_initialization_encoder, inputs[2]}:annotate{name="encoder"}
@@ -38,17 +47,24 @@ local AtariModel = function(dim_hidden, color_channels, feature_maps, noise, sha
         encoder_clones[i] = encoder_clones[i]{encoder_clones[i-1], inputs[i+1]}:annotate{name="encoder"}
     end
 
-    local decoder_clones = {decoder_prototype}
-    for _ = 2, timesteps do
-        table.insert(decoder_clones, decoder_prototype:clone('weight', 'bias', 'gradWeight', 'gradBias'))
-    end
+    output = {state_initialization_encoder, table.unpack(encoder_clones)}
 
-    decoder_clones[1] = decoder_clones[1](state_initialization_encoder):annotate{name="decoder"}
-    for i = 1, #encoder_clones do
-        decoder_clones[i+1] = decoder_clones[i+1](encoder_clones[i]):annotate{name="decoder"}
-    end
+    -- local decoder_clones = {decoder_prototype}
+    -- for _ = 2, timesteps do
+    --     local clone = Decoder(dim_hidden, color_channels, feature_maps)
+    --     if opt.gpu then
+    --         clone:cuda()
+    --     end
+    --     clone:share(decoder_prototype, 'weight', 'bias', 'gradWeight', 'gradBias')
+    --     table.insert(decoder_clones, clone)
+    -- end
 
-    local output = decoder_clones
+    -- decoder_clones[1] = decoder_clones[1](state_initialization_encoder):annotate{name="decoder"}
+    -- for i = 1, #encoder_clones do
+    --     decoder_clones[i+1] = decoder_clones[i+1](encoder_clones[i]):annotate{name="decoder"}
+    -- end
+
+    -- local output = decoder_clones
 
     collectgarbage()
     return nn.gModule(inputs, output)
