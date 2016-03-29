@@ -104,6 +104,10 @@ local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
 model = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
 
+
+local decoders = utils.findModulesByAnnotation(model, "decoder")
+local decoder = decoders[#decoders]
+
 -- graph.dot(model.fg, 'atari_model', 'reports/atari_model')
 
 -- [[
