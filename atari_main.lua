@@ -4,6 +4,7 @@ require 'optim'
 require 'MotionBCECriterion'
 
 local Model = require 'AtariModel'
+local Decoder = require 'AtariDecoder'
 local data_loaders = require 'data_loaders'
 local utils = require 'utils'
 
@@ -11,7 +12,7 @@ local cmd = torch.CmdLine()
 
 cmd:option('--name', 'net', 'filename to autosave the checkpont to. Will be inside checkpoint_dir/')
 cmd:option('--checkpoint_dir', 'networks', 'output directory where checkpoints get written')
-cmd:option('-import', '', 'initialize network parameters from checkpoint at this path')
+cmd:option('--import', '', 'initialize network parameters from checkpoint at this path')
 
 -- data
 cmd:option('--datasetdir', '/om/user/wwhitney/deep-game-engine', 'dataset source directory')
@@ -33,7 +34,7 @@ cmd:option('--heads', 1, 'how many filtering heads to use')
 cmd:option('--motion_scale', 1, 'how much to accentuate loss on changing pixels')
 
 cmd:option('--dim_hidden', 200, 'dimension of the representation layer')
-cmd:option('--feature_maps', 72, 'number of feature maps')
+cmd:option('--feature_maps', 64, 'number of feature maps')
 cmd:option('--color_channels', 3, '1 for grayscale, 3 for color')
 cmd:option('--sharpening_rate', 10, 'number of feature maps')
 cmd:option('--noise', 0.1, 'variance of added Gaussian noise')
@@ -51,7 +52,7 @@ cmd:option('--num_train_batches', 8000, 'number of batches to train with per epo
 cmd:option('--num_test_batches', 900, 'number of batches to test with')
 
 -- GPU/CPU
-cmd:option('--gpu', false, 'which gpu to use. -1 = use CPU')
+cmd:option('--gpu', false, 'whether to use GPU')
 cmd:text()
 
 
@@ -102,13 +103,19 @@ local scheduler_iteration = torch.zeros(1)
 
 local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
-model = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
+model = nn.Sequential()
+encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
+model:add(encoder)
 
+join = nn.JoinTable(1)
+model:add(join)
 
-local decoders = utils.findModulesByAnnotation(model, "decoder")
-local decoder = decoders[#decoders]
+decoder = Decoder(opt.dim_hidden, opt.color_channels, opt.feature_maps)
+model:add(decoder)
 
--- graph.dot(model.fg, 'atari_model', 'reports/atari_model')
+print(model)
+
+-- graph.dot(model.modules[1].fg, 'atari_multistep_encoder', 'reports/atari_multistep_encoder')
 
 -- [[
 
@@ -120,9 +127,12 @@ else
     error("Invalid criterion specified!")
 end
 
+local stupid_join = nn.JoinTable(1)
+
 if opt.gpu then
     model:cuda()
     criterion:cuda()
+    stupid_join:cuda()
 end
 
 -- local encoders = utils.findModulesByAnnotation(model, 'encoder')
@@ -140,6 +150,7 @@ end
 -- collectgarbage()
 
 params, grad_params = model:getParameters()
+
 
 
 function validate()
@@ -177,8 +188,10 @@ function feval(x)
     local loss
     local output = model:forward(input)
 
-    loss = criterion:forward(output, input)
-    local grad_output = criterion:backward(output, input)
+    -- print(model.modules[2].output:size())
+
+    loss = criterion:forward(output, stupid_join:forward(input))
+    local grad_output = criterion:backward(output, stupid_join:forward(input))
 
     model:backward(input, grad_output)
 
@@ -204,6 +217,8 @@ local iterations = opt.max_epochs * opt.num_train_batches
 -- local iterations_per_epoch = opt.num_train_batches
 local loss0 = nil
 
+-- print(cutorch.getMemoryUsage(cutorch.getDevice()))
+
 for step = 1, iterations do
     scheduler_iteration[1] = step
     epoch = step / opt.num_train_batches
@@ -215,7 +230,7 @@ for step = 1, iterations do
     local time = timer:time().real
 
     -- print(cutorch.getMemoryUsage(cutorch.getDevice()))
-
+    -- print(params:size())
     local train_loss = loss[1] -- the loss is inside a list, pop it
     train_losses[step] = train_loss
 

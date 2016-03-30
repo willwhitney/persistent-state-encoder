@@ -24,17 +24,10 @@ function MotionBCECriterion:__init(motionScale)
    self.sizeAverage = true
    self.motionScale = motionScale
    self.mask = torch.Tensor()
-   self.input_join = nn.JoinTable(1)
-   self.target_join = nn.JoinTable(1)
 end
 
 function MotionBCECriterion:updateOutput(input, target)
    -- log(input) * target + log(1 - input) * (1 - target)
-
-   if type(input) == 'table' then
-      input = self.input_join:forward(input)
-      target = self.target_join:forward(target)
-   end
 
    self.term1 = self.term1 or input.new()
    self.term2 = self.term2 or input.new()
@@ -64,11 +57,6 @@ end
 
 function MotionBCECriterion:updateGradInput(input, target)
    -- target / input - (1 - target) / (1 - input)
-   local original_input = input
-   if type(input) == 'table' then
-      input = self.input_join:forward(input)
-      target = self.target_join:forward(target)
-   end
 
    self.term1 = self.term1 or input.new()
    self.term2 = self.term2 or input.new()
@@ -86,27 +74,22 @@ function MotionBCECriterion:updateGradInput(input, target)
 
    self.term3:copy(input):add(eps)
 
-   self.gradInputHolder = self.gradInputHolder or input.new()
-   self.gradInputHolder:resizeAs(input)
-   self.gradInputHolder:copy(target):cdiv(self.term3)
+   self.gradInput:resizeAs(input)
+   self.gradInput:copy(target):cdiv(self.term3)
 
-   self.gradInputHolder:add(-1,self.term1)
+   self.gradInput:add(-1,self.term1)
 
    if self.sizeAverage then
-      self.gradInputHolder:div(target:nElement())
+      self.gradInput:div(target:nElement())
    end
 
-   self.gradInputHolder:mul(-1)
+   self.gradInput:mul(-1)
 
    -- as stated above,
    -- the error is Sum[(error at each point) * (importance of that point)]
    -- so the gradient is grad(error at each point) * (importance of that point)
    self:updateScalingMask(target)
-   self.gradInputHolder:cmul(self.mask)
-
-   if type(original_input) == 'table' then
-      self.gradInput = self.input_join:backward(original_input, self.gradInputHolder)
-   end
+   self.gradInput:cmul(self.mask)
 
    return self.gradInput
 end
