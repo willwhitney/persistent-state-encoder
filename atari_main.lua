@@ -127,9 +127,12 @@ else
     error("Invalid criterion specified!")
 end
 
+local stupid_join = nn.JoinTable(1)
+
 if opt.gpu then
     model:cuda()
     criterion:cuda()
+    stupid_join:cuda()
 end
 
 -- local encoders = utils.findModulesByAnnotation(model, 'encoder')
@@ -187,8 +190,8 @@ function feval(x)
 
     -- print(model.modules[2].output:size())
 
-    loss = criterion:forward(output, input)
-    local grad_output = criterion:backward(output, input)
+    loss = criterion:forward(output, stupid_join:forward(input))
+    local grad_output = criterion:backward(output, stupid_join:forward(input))
 
     model:backward(input, grad_output)
 
