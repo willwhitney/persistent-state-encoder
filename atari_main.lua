@@ -12,7 +12,7 @@ local cmd = torch.CmdLine()
 
 cmd:option('--name', 'net', 'filename to autosave the checkpont to. Will be inside checkpoint_dir/')
 cmd:option('--checkpoint_dir', 'networks', 'output directory where checkpoints get written')
-cmd:option('-import', '', 'initialize network parameters from checkpoint at this path')
+cmd:option('--import', '', 'initialize network parameters from checkpoint at this path')
 
 -- data
 cmd:option('--datasetdir', '/om/user/wwhitney/deep-game-engine', 'dataset source directory')
@@ -34,7 +34,7 @@ cmd:option('--heads', 1, 'how many filtering heads to use')
 cmd:option('--motion_scale', 1, 'how much to accentuate loss on changing pixels')
 
 cmd:option('--dim_hidden', 200, 'dimension of the representation layer')
-cmd:option('--feature_maps', 72, 'number of feature maps')
+cmd:option('--feature_maps', 64, 'number of feature maps')
 cmd:option('--color_channels', 3, '1 for grayscale, 3 for color')
 cmd:option('--sharpening_rate', 10, 'number of feature maps')
 cmd:option('--noise', 0.1, 'variance of added Gaussian noise')
