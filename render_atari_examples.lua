@@ -28,7 +28,7 @@ end
 --         gpu = true,
 --     }
 
-base_directory = "/om/user/wwhitney/unsupervised-dcign/networks"
+base_directory = "/om/user/wwhitney/persistent-state-encoder/networks"
 
 local jobname = name ..'_'.. os.date("%b_%d_%H_%M")
 local output_path = 'reports/renderings/'..jobname
@@ -65,10 +65,11 @@ for _, network in ipairs(networks) do
         sharpener.iteration_container = scheduler_iteration
         print("Current sharpening: ", sharpener:getP())
 
-        local weight_predictor = encoder:findModules('nn.Normalize')[1]
-        local previous_embedding = encoder:findModules('nn.Linear')[1]
-        local current_embedding = encoder:findModules('nn.Linear')[2]
-        local decoder = model.modules[2]
+        local weight_predictors = encoder:findModules('nn.Normalize')
+        -- local weight_predictors = encoder:findModules('nn.Normalize')
+        -- local previous_embedding = encoder:findModules('nn.Linear')[1]
+        -- local current_embedding = encoder:findModules('nn.Linear')[2]
+        -- local decoder = model.modules[2]
 
         for i = 339, 343 do
             local images = {}
@@ -76,23 +77,23 @@ for _, network in ipairs(networks) do
             -- fetch a batch
             local input = data_loaders.load_atari_batch(i, 'test')
             local output = model:forward(input):clone()
-            local embedding_from_previous = previous_embedding.output:clone()
-            local embedding_from_current = current_embedding.output:clone()
+            -- local embedding_from_previous = previous_embedding.output:clone()
+            -- local embedding_from_current = current_embedding.output:clone()
 
-            local reconstruction_from_previous = decoder:forward(embedding_from_previous):clone()
-            local reconstruction_from_current = decoder:forward(embedding_from_current):clone()
+            -- local reconstruction_from_previous = decoder:forward(embedding_from_previous):clone()
+            -- local reconstruction_from_current = decoder:forward(embedding_from_current):clone()
 
             local weight_norms = torch.zeros(output:size(1))
-            local weight_norms = torch.zeros(output:size(1))
-            for input_index = 1, output:size(1) do
-                weights = weight_predictor.output[input_index]:clone()
+            for input_index = 1, output:size(1)-1 do
+                weights = weight_predictors[input_index].output[1]:clone()
                 weight_norms[input_index] = weights:norm()
             end
             print("Mean independence of weights: ", weight_norms:mean())
 
             for input_index = 1, math.min(30, output:size(1)), 3 do
-                local weights = weight_predictor.output[input_index]:clone()
-                local max_weight, varying_index = weights:max(1)
+                -- local weights = weight_predictor.output[input_index]:clone()
+                -- local max_weight, varying_index = weights:max(1)
+
                 -- print("Varying index: " .. vis.simplestr(varying_index), "Weight: " .. vis.simplestr(max_weight))
 
                 -- local embedding_change = embedding_from_current[input_index] - embedding_from_previous[input_index]
@@ -102,10 +103,7 @@ for _, network in ipairs(networks) do
 
 
                 local image_row = {}
-                table.insert(image_row, input[1][input_index]:float())
-                table.insert(image_row, input[2][input_index]:float())
-                table.insert(image_row, reconstruction_from_previous[input_index]:float())
-                table.insert(image_row, reconstruction_from_current[input_index]:float())
+                table.insert(image_row, input[input_index][1]:float())
                 table.insert(image_row, output[input_index]:float())
                 table.insert(images, image_row)
             end
