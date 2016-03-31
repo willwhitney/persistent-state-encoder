@@ -161,9 +161,9 @@ function validate()
         -- fetch a batch
         local input = data_loaders.load_atari_batch(i, 'test')
 
-        output = model:forward(input)
+        local output = model:forward(input)
+        step_loss = criterion:forward(output, stupid_join:forward(input))
 
-        local step_loss = criterion:forward(output, input)
         loss = loss + step_loss
     end
 
