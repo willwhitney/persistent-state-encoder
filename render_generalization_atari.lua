@@ -28,7 +28,7 @@ end
 --         gpu = true,
 --     }
 
-base_directory = "/om/user/wwhitney/unsupervised-dcign/networks"
+base_directory = "/om/user/wwhitney/persistent-state-encoder/networks"
 
 local jobname = name ..'_'.. os.date("%b_%d_%H_%M")
 local output_path = 'reports/renderings/mutation/'..jobname
@@ -45,6 +45,24 @@ function getLastSnapshot(network_name)
     else
         return result
     end
+end
+
+function textScreen(text)
+    local white = {255,255,255}
+    local canvas = torch.zeros(3, 210, 160)
+    return image.drawText(canvas, text, 10, 10, {color=white})
+end
+
+function nMaxes(tensor, n)
+    tensor = tensor:clone()
+    local max_indices = {}
+    for nth = 1, n do
+        local _, idx = tensor:max(1)
+        idx = idx[1]
+        table.insert(max_indices, idx)
+        tensor[idx] = 0
+    end
+    return max_indices
 end
 
 for _, network in ipairs(networks) do
@@ -65,64 +83,53 @@ for _, network in ipairs(networks) do
         sharpener.iteration_container = scheduler_iteration
         print("Current sharpening: ", sharpener:getP())
 
-        local weight_predictor = encoder:findModules('nn.Normalize')[1]
-        local previous_embedding = encoder:findModules('nn.Linear')[1]
+        local gates = encoder:findModules('nn.Clamp')
+        -- local previous_embedding = encoder:findModules('nn.Linear')[1]
         -- local current_embedding = encoder:findModules('nn.Linear')[2]
-        local decoder = model.modules[2]
+        local decoder = model.modules[3]
 
-        for _, batch_index in ipairs{347, 400, 420} do
+
+        local image_grid = {}
+        for _, batch_index in ipairs{347, 420} do
             print("Batch index: ", batch_index)
             -- local images = {}
 
             -- fetch a batch
             local input = data_loaders.load_atari_batch(batch_index, 'test')
             local output = model:forward(input):clone()
-            local embedding_from_previous = previous_embedding.output:clone()
+            -- local embedding_from_previous = previous_embedding.output:clone()
             -- local embedding_from_current = current_embedding.output:clone()
 
             -- local reconstruction_from_previous = decoder:forward(embedding_from_previous):clone()
             -- local reconstruction_from_current = decoder:forward(embedding_from_current):clone()
 
-            local weight_norms = torch.zeros(output:size(1))
-            for input_index = 1, output:size(1) do
-                local weights = weight_predictor.output[input_index]:clone()
+            local weight_norms = torch.zeros(output:size(1) - 1)
+            for input_index = 1, weight_norms:size(1) do
+                local weights = gates[input_index].output[1]:clone()
                 weight_norms[input_index] = weights:norm()
             end
             print("Mean independence of weights: ", weight_norms:mean())
 
 
-
-
-            -- local max_indices = {}
-            -- for input_index = 1, output:size(1) do
-            --     local weights = weight_predictor.output[input_index]:clone()
-            --     local _, idx = weights:max(1)
-            --     max_indices[idx[1]] = true
-            -- end
-
-            for input_index = 1, 2 do
+            for _, input_index in ipairs{1, 10} do
                 collectgarbage()
                 print("Input index: ", input_index)
-                local base_embedding = embedding_from_previous[input_index]:clone():float()
+                local base_embedding = encoder.output[input_index][1]:clone():float()
 
-                local weights = weight_predictor.output[input_index]:clone():float()
-                local max_indices = {}
-                for nth_max = 1, 3 do
-                    local _, idx = weights:max(1)
-                    idx = idx[1]
-                    max_indices[idx] = true
-                    weights[idx] = 0
-                end
+                local weights = gates[input_index].output[1]:clone():float()
+                local max_indices = nMaxes(weights, 3)
 
 
-                for max_index, _ in pairs(max_indices) do
+                for _, max_index in ipairs(max_indices) do
                     collectgarbage()
+                    local image_row = {}
+                    table.insert(image_row, textScreen('batch '..batch_index..'\ninput '..input_index..'\nvarying '..max_index))
                     -- local weights = weight_predictor.output[input_index]:clone()
                     -- local max_weight, varying_index = weights:max(1)
 
-                    local num_frames = 40
-                    local min_change = -1.5
-                    local max_change = 1.5
+                    local num_frames = 10
+                    local min_change = -2.5
+                    local max_change = 2.5
 
                     local mutated_input = torch.Tensor(num_frames, base_embedding:size(1))
 
@@ -133,20 +140,24 @@ for _, network in ipairs(networks) do
                     end
 
                     local mutated_renders = decoder:forward(mutated_input:cuda()):clone()
-
-                    local output_directory = paths.concat(
-                            output_path,
-                            network,
-                            'batch_'..batch_index..'_input_'..input_index..'_along_'..max_index)
-                    os.execute('mkdir -p '..output_directory)
-
-                    for i = 1, num_frames do
-                        local change = min_change + (i-1) * (max_change-min_change)/num_frames
-                        local output_filename = paths.concat(
-                            output_directory,
-                            'changing_'..i..'_amount_'..vis.simplestr(change)..'.png')
-                        image.save(output_filename, mutated_renders[i])
+                    for i = 1, mutated_renders:size(1) do
+                        table.insert(image_row, mutated_renders[i]:float())
                     end
+                    table.insert(image_grid, image_row)
+
+                    -- local output_directory = paths.concat(
+                    --         output_path,
+                    --         network,
+                    --         'batch_'..batch_index..'_input_'..input_index..'_along_'..max_index)
+                    -- os.execute('mkdir -p '..output_directory)
+
+                    -- for i = 1, num_frames do
+                    --     local change = min_change + (i-1) * (max_change-min_change)/num_frames
+                    --     local output_filename = paths.concat(
+                    --         output_directory,
+                    --         'changing_'..i..'_amount_'..vis.simplestr(change)..'.png')
+                    --     image.save(output_filename, mutated_renders[i])
+                    -- end
 
                     -- for change = -3, 3, 0.1 do
                     --     local output_directory = paths.concat(
@@ -178,6 +189,7 @@ for _, network in ipairs(networks) do
                     collectgarbage()
                 end
             end
+            vis.save_image_grid(paths.concat(output_path, network..'.png'), image_grid)
             -- print("Mean independence of weights: ", weight_norms:mean())
             -- vis.save_image_grid(paths.concat(output_path, network .. '_batch_'..batch_index..'.png'), images)
 

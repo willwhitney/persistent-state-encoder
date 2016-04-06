@@ -1,13 +1,20 @@
 require 'nn'
+require 'nngraph'
 require 'cutorch'
 require 'cunn'
 require 'paths'
 require 'lfs'
 
 vis = require 'vis'
-require 'AtariEncoder'
-require 'AtariDecoder'
+require 'nn'
+require 'optim'
+
+require 'MotionBCECriterion'
+
+local Model = require 'AtariModel'
+local Decoder = require 'AtariDecoder'
 local data_loaders = require 'data_loaders'
+local utils = require 'utils'
 
 name = arg[1]
 -- dataset_name = arg[2] or name
@@ -57,6 +64,8 @@ for _, network in ipairs(networks) do
         local checkpoint = torch.load(paths.concat(base_directory, network, snapshot_name))
         opt = checkpoint.opt
         local model = checkpoint.model
+        model:cuda()
+        print(model)
         local scheduler_iteration = torch.Tensor{checkpoint.step}
         model:evaluate()
 
@@ -66,6 +75,7 @@ for _, network in ipairs(networks) do
         print("Current sharpening: ", sharpener:getP())
 
         local weight_predictors = encoder:findModules('nn.Normalize')
+        local gates = encoder:findModules('nn.Clamp')
         -- local weight_predictors = encoder:findModules('nn.Normalize')
         -- local previous_embedding = encoder:findModules('nn.Linear')[1]
         -- local current_embedding = encoder:findModules('nn.Linear')[2]
@@ -76,6 +86,7 @@ for _, network in ipairs(networks) do
 
             -- fetch a batch
             local input = data_loaders.load_atari_batch(i, 'test')
+            -- print(input)
             local output = model:forward(input):clone()
             -- local embedding_from_previous = previous_embedding.output:clone()
             -- local embedding_from_current = current_embedding.output:clone()
@@ -89,6 +100,8 @@ for _, network in ipairs(networks) do
                 weight_norms[input_index] = weights:norm()
             end
             print("Mean independence of weights: ", weight_norms:mean())
+            print("Clamped output from heads:")
+            print(vis.simplestr(gates[1].output[1]))
 
             for input_index = 1, math.min(30, output:size(1)), 3 do
                 -- local weights = weight_predictor.output[input_index]:clone()
