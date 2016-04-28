@@ -48,7 +48,7 @@ cmd:option('--max_epochs', 50, 'number of full passes through the training data'
 -- bookkeeping
 cmd:option('--seed', 123, 'torch manual random number generator seed')
 cmd:option('--print_every', 1, 'how many steps/minibatches between printing out the loss')
-cmd:option('--eval_val_every', 9000, 'every how many iterations should we evaluate on validation data?')
+cmd:option('--eval_val_every', 8000, 'every how many iterations should we evaluate on validation data?')
 
 -- data
 cmd:option('--num_train_batches', 8000, 'number of batches to train with per epoch')
@@ -110,7 +110,7 @@ local batch_timesteps = #sample_batch
 -- local batch_timesteps = 10
 
 model = nn.Sequential()
-encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.max_heads, batch_timesteps)
+encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, head_cost, opt.max_heads, batch_timesteps)
 model:add(encoder)
 
 join = nn.JoinTable(1)
@@ -163,7 +163,7 @@ end
 params, grad_params = model:getParameters()
 
 
-local heads_predictor = utils.findModulesByAnnotation('heads_predictor')[1]
+local heads_predictor = model.modules[1]:findModules('nn.Accumulator')[1]
 function validate()
     local loss = 0
     model:evaluate()
@@ -266,6 +266,7 @@ for step = 1, iterations do
 
     -- every now and then or on last iteration
     if step % opt.eval_val_every == 0 or step == iterations then
+        print(string.format("Head cost at epoch %.3f: %.6f", epoch, head_cost[1]))
         -- evaluate loss on validation data
         local val_loss = validate() -- 2 = validation
         val_losses[step] = val_loss

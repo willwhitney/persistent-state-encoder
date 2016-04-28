@@ -35,7 +35,8 @@ local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, s
     heads[1]:add(nn.Normalize(1, 1e-100))
 
     for i = 2, num_heads do
-        heads[i] = heads[1]:clone():reset()
+        heads[i] = heads[1]:clone()
+        heads[i]:reset()
     end
 
     for i = 1, num_heads do

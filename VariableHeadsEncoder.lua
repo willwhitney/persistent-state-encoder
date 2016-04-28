@@ -10,6 +10,8 @@ require 'Accumulator'
 BasicEncoder = require('BasicEncoder')
 
 local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
+    -- print("dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads")
+    -- print(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
 
     local previous_state = nn.Identity()():annotate{name="previous_state"}
     local input_frame = nn.Identity()():annotate{name="frame"}
@@ -45,11 +47,13 @@ local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, 
 
     -- create the rest of the heads
     for i = 2, max_heads do
-        heads[i] = heads[1]:clone():reset()
+        heads[i] = heads[1]:clone()
+        heads[i]:reset()
     end
 
     -- name all the heads
     for i = 1, max_heads do
+        -- print("head: ", heads[i])
         heads[i] = heads[i]{previous_state, encoder}:annotate{name="gating_head_"..i}
     end
 

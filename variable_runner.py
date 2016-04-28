@@ -30,17 +30,17 @@ base_networks = {
 jobs = []
 
 learning_rate_options = [2e-4]
-heads_options = [20]
+max_heads_options = [20]
 cost_decay_rate_options = [0.9, 0.95]
 cost_per_head_options = [0.1, 0.01]
 
 for learning_rate in learning_rate_options:
-    for heads in heads_options:
+    for max_heads in max_heads_options:
         for cost_decay_rate in cost_decay_rate_options:
             for cost_per_head in cost_per_head_options:
                 job = {
                         "learning_rate": learning_rate,
-                        "heads": heads,
+                        "max_heads": max_heads,
                         "cost_decay_rate": cost_decay_rate,
                         "cost_per_head": cost_per_head,
 
@@ -97,6 +97,6 @@ for job in jobs:
 
         if not dry_run:
             if 'gpu' in job and job['gpu']:
-                os.system("sbatch -N 1 -c 2 --gres=gpu:1 -p gpu --mem=8000 --time=6-23:00:00 slurm_scripts/" + jobname + ".slurm &")
+                os.system("sbatch -N 1 -c 2 --gres=gpu:titan-x:1 --mem=8000 --time=6-23:00:00 slurm_scripts/" + jobname + ".slurm &")
             else:
                 os.system("sbatch -N 1 -c 2 --mem=8000 --time=6-23:00:00 slurm_scripts/" + jobname + ".slurm &")
