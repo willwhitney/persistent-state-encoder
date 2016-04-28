@@ -3,21 +3,22 @@ require 'optim'
 
 require 'MotionBCECriterion'
 
-local Model = require 'AtariModel'
+local Model = require 'VariableHeadsModel'
 local Decoder = require 'AtariDecoder'
 local data_loaders = require 'data_loaders'
 local utils = require 'utils'
+local vis = require 'vis'
 
 local cmd = torch.CmdLine()
 
-cmd:option('--name', 'net', 'filename to autosave the checkpont to. Will be inside checkpoint_dir/')
+cmd:option('--name', 'default', 'filename to autosave the checkpont to. Will be inside checkpoint_dir/')
 cmd:option('--checkpoint_dir', 'networks', 'output directory where checkpoints get written')
 cmd:option('--import', '', 'initialize network parameters from checkpoint at this path')
 
 -- data
 cmd:option('--datasetdir', '/om/user/wwhitney/deep-game-engine', 'dataset source directory')
 cmd:option('--dataset_name', 'breakout', 'dataset source directory')
-cmd:option('--frame_interval', 1, 'the number of timesteps between input[1] and input[2]')
+cmd:option('--frame_interval', 3, 'the number of timesteps between input[1] and input[2]')
 
 -- optimization
 cmd:option('--learning_rate', 1e-4, 'learning rate')
@@ -27,16 +28,18 @@ cmd:option('--learning_rate_decay_interval', 4000, 'in number of examples, how o
 cmd:option('--decay_rate', 0.95, 'decay rate for rmsprop')
 cmd:option('--grad_clip', 3, 'clip gradients at this value')
 
+cmd:option('--cost_decay_rate', 0.95, 'decay rate for the cost per head')
+cmd:option('--cost_per_head', 0.01, 'cost per additional head used')
+cmd:option('--max_heads', 20, 'how many filtering heads to use')
+cmd:option('--motion_scale', 3, 'how much to accentuate loss on changing pixels')
+
 cmd:option('--L2', 0, 'amount of L2 regularization')
 cmd:option('--criterion', 'BCE', 'criterion to use')
-
-cmd:option('--heads', 1, 'how many filtering heads to use')
-cmd:option('--motion_scale', 1, 'how much to accentuate loss on changing pixels')
 
 cmd:option('--dim_hidden', 200, 'dimension of the representation layer')
 cmd:option('--feature_maps', 64, 'number of feature maps')
 cmd:option('--color_channels', 3, '1 for grayscale, 3 for color')
-cmd:option('--sharpening_rate', 10, 'number of feature maps')
+cmd:option('--sharpening_rate', 10, 'how fast to sharpen the heads')
 cmd:option('--noise', 0.1, 'variance of added Gaussian noise')
 
 
@@ -98,12 +101,16 @@ print = function(...)
     logfile:flush()
 end
 
+
 local scheduler_iteration = torch.zeros(1)
+local head_cost = torch.zeros(1)
 
 local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
+-- local batch_timesteps = 10
+
 model = nn.Sequential()
-encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.heads, batch_timesteps)
+encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, opt.max_heads, batch_timesteps)
 model:add(encoder)
 
 join = nn.JoinTable(1)
@@ -114,7 +121,12 @@ model:add(decoder)
 
 print(model)
 
--- graph.dot(model.modules[1].fg, 'atari_multistep_encoder', 'reports/atari_multistep_encoder')
+-- input = torch.ones(10, 3, 210, 160)
+-- embeddings = model.modules[1]:forward(input:split(1))
+-- print(embeddings[1])
+-- graph.dot(model.modules[1].fg, 'atari_varheads', 'reports/atari_varheads')
+-- print(model.modules[1])
+-- graph.dot(model.modules[1].modules[4].fg, 'atari_varheads_encoder', 'reports/atari_varheads_encoder')
 
 -- [[
 
@@ -151,7 +163,7 @@ end
 params, grad_params = model:getParameters()
 
 
-
+local heads_predictor = utils.findModulesByAnnotation('heads_predictor')[1]
 function validate()
     local loss = 0
     model:evaluate()
@@ -162,6 +174,10 @@ function validate()
 
         local output = model:forward(input)
         step_loss = criterion:forward(output, stupid_join:forward(input))
+
+        if i % 10 == 0 then
+            print("Accumulator distribution: ", vis.simplestr(heads_predictor.output[1]))
+        end
 
         loss = loss + step_loss
     end
@@ -221,6 +237,8 @@ local loss0 = nil
 for step = 1, iterations do
     scheduler_iteration[1] = step
     epoch = step / opt.num_train_batches
+
+    head_cost[1] = opt.cost_per_head * (1 - opt.cost_decay_rate ^ epoch)
 
     local timer = torch.Timer()
 

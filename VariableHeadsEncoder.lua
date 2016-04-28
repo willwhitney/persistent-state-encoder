@@ -5,10 +5,11 @@ require 'Print'
 require 'ChangeLimiter'
 require 'Noise'
 require 'ScheduledWeightSharpener'
+require 'Accumulator'
 
 BasicEncoder = require('BasicEncoder')
 
-local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, num_heads)
+local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
 
     local previous_state = nn.Identity()():annotate{name="previous_state"}
     local input_frame = nn.Identity()():annotate{name="frame"}
@@ -23,6 +24,14 @@ local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, s
 
     encoder = encoder(input_frame):annotate{name="encoder"}
 
+    local heads_predictor = nn.Sequential()
+    heads_predictor:add(nn.JoinTable(2))
+    heads_predictor:add(nn.Linear(dim_hidden * 2, max_heads))
+    heads_predictor:add(nn.SoftMax()) -- distribution over how many heads to have
+    heads_predictor:add(nn.Accumulator(head_cost)) -- prob of having at least n heads
+    heads_predictor = heads_predictor{previous_state, encoder}:annotate{name="heads_predictor"}
+
+
     -- make the heads to analyze the encodings
     local heads = {}
     heads[1] = nn.Sequential()
@@ -34,19 +43,24 @@ local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, s
     heads[1]:add(nn.AddConstant(1e-20))
     heads[1]:add(nn.Normalize(1, 1e-100))
 
-    for i = 2, num_heads do
+    -- create the rest of the heads
+    for i = 2, max_heads do
         heads[i] = heads[1]:clone():reset()
     end
 
-    for i = 1, num_heads do
+    -- name all the heads
+    for i = 1, max_heads do
         heads[i] = heads[i]{previous_state, encoder}:annotate{name="gating_head_"..i}
     end
 
     local dist
-    if num_heads > 1 then
+    if max_heads > 1 then
         -- combine the distributions from all heads
-        local dist_adder = nn.CAddTable()(heads)
-        local dist_clamp = nn.Clamp(0, 1)(dist_adder)
+        -- local heads_tensor = nn.JoinTable(2)(heads)
+        -- local heads_mixture = nn.MixtureTable(3){heads_predictor, heads_tensor}
+        local heads_table = nn.Identity()(heads)
+        local heads_mixture = nn.MixtureTable(){heads_predictor, heads_table}
+        local dist_clamp = nn.Clamp(0, 1)(heads_mixture)
         dist = dist_clamp
     else
         dist = heads[1]
@@ -61,4 +75,4 @@ local AtariEncoder = function(dim_hidden, color_channels, feature_maps, noise, s
     return gmod
 end
 
-return AtariEncoder
+return VariableHeadsEncoder
