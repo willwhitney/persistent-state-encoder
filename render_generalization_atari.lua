@@ -6,6 +6,7 @@ require 'lfs'
 
 vis = require 'vis'
 require 'AtariEncoder'
+require 'VariableHeadsEncoder'
 require 'AtariDecoder'
 local data_loaders = require 'data_loaders'
 
@@ -50,7 +51,7 @@ end
 function textScreen(text)
     local white = {255,255,255}
     local canvas = torch.zeros(3, 210, 160)
-    return image.drawText(canvas, text, 10, 10, {color=white})
+    return image.drawText(canvas, text, 10, 10, {color=white, size=2})
 end
 
 function nMaxes(tensor, n)
@@ -75,6 +76,7 @@ for _, network in ipairs(networks) do
         local checkpoint = torch.load(paths.concat(base_directory, network, snapshot_name))
         opt = checkpoint.opt
         local model = checkpoint.model
+        print(model)
         local scheduler_iteration = torch.Tensor{checkpoint.step}
         model:evaluate()
 
@@ -84,6 +86,8 @@ for _, network in ipairs(networks) do
         print("Current sharpening: ", sharpener:getP())
 
         local gates = encoder:findModules('nn.Clamp')
+        local head_predictors = encoder:findModules('nn.Accumulator')
+        -- print(gates)
         -- local previous_embedding = encoder:findModules('nn.Linear')[1]
         -- local current_embedding = encoder:findModules('nn.Linear')[2]
         local decoder = model.modules[3]
@@ -96,6 +100,7 @@ for _, network in ipairs(networks) do
 
             -- fetch a batch
             local input = data_loaders.load_atari_batch(batch_index, 'test')
+            -- print("input", input)
             local output = model:forward(input):clone()
             -- local embedding_from_previous = previous_embedding.output:clone()
             -- local embedding_from_current = current_embedding.output:clone()
@@ -105,17 +110,20 @@ for _, network in ipairs(networks) do
 
             local weight_norms = torch.zeros(output:size(1) - 1)
             for input_index = 1, weight_norms:size(1) do
+                print("#Heads distribution: ", vis.simplestr(head_predictors[input_index].output[1]))
                 local weights = gates[input_index].output[1]:clone()
                 weight_norms[input_index] = weights:norm()
             end
             print("Mean independence of weights: ", weight_norms:mean())
 
 
-            for _, input_index in ipairs{1, 10} do
+            for _, input_index in ipairs{1, 5} do
                 collectgarbage()
                 print("Input index: ", input_index)
                 local base_embedding = encoder.output[input_index][1]:clone():float()
-
+                -- print(gates[input_index])
+                -- print(gates[input_index].output)
+                -- print(gates[input_index].output[1])
                 local weights = gates[input_index].output[1]:clone():float()
                 local max_indices = nMaxes(weights, 3)
 
@@ -127,9 +135,9 @@ for _, network in ipairs(networks) do
                     -- local weights = weight_predictor.output[input_index]:clone()
                     -- local max_weight, varying_index = weights:max(1)
 
-                    local num_frames = 10
-                    local min_change = -2.5
-                    local max_change = 2.5
+                    local num_frames = 20
+                    local min_change = -1
+                    local max_change = 1
 
                     local mutated_input = torch.Tensor(num_frames, base_embedding:size(1))
 

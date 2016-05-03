@@ -103,7 +103,10 @@ end
 
 
 local scheduler_iteration = torch.zeros(1)
-local head_cost = torch.zeros(1)
+
+-- this is dumb, but it's the easiest and most portable way
+-- to make this a global variable
+opt.current_head_cost = 0
 
 local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
@@ -177,6 +180,7 @@ function validate()
 
         if i % 10 == 0 then
             print("Accumulator distribution: ", vis.simplestr(heads_predictor.output[1]))
+            -- print("Accumulator head cost: ", heads_predictor.cost_container[1])
         end
 
         loss = loss + step_loss
@@ -238,7 +242,7 @@ for step = 1, iterations do
     scheduler_iteration[1] = step
     epoch = step / opt.num_train_batches
 
-    head_cost[1] = opt.cost_per_head * (1 - opt.cost_decay_rate ^ epoch)
+    opt.current_head_cost = opt.cost_per_head * (1 - opt.cost_decay_rate ^ epoch)
 
     local timer = torch.Timer()
 
@@ -266,7 +270,7 @@ for step = 1, iterations do
 
     -- every now and then or on last iteration
     if step % opt.eval_val_every == 0 or step == iterations then
-        print(string.format("Head cost at epoch %.3f: %.6f", epoch, head_cost[1]))
+        print(string.format("Head cost at epoch %.3f: %.6f", epoch, opt.current_head_cost))
         -- evaluate loss on validation data
         local val_loss = validate() -- 2 = validation
         val_losses[step] = val_loss

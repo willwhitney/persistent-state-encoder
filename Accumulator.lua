@@ -2,12 +2,15 @@ require 'nn'
 
 local Accumulator, parent = torch.class('nn.Accumulator', 'nn.Module')
 
+--[[
 function Accumulator:__init(cost_container)
     parent.__init(self)
 
+    print("Accumulator cost container: ", cost_container)
     -- self.cost_container is a tensor so that this parameter can be annealed
     self.cost_container = cost_container or torch.Tensor{0}
 end
+--]]
 
 function Accumulator:updateOutput(input)
     self.output = input:clone()
@@ -30,12 +33,15 @@ function Accumulator:updateGradInput(input, gradOutput)
     for i = 1, input:size(2) do
         gradPenalty[{{}, i}] = i
     end
-    gradPenalty = gradPenalty * self.cost_container[1]
+
+    -- print("Current head cost in accumulator: ", opt.current_head_cost)
+
+    -- opt.current_head_cost is set in the main.lua file
+    gradPenalty = gradPenalty * opt.current_head_cost
     self.gradInput = self.gradInput + gradPenalty
     return self.gradInput
 end
 
-function Accumulator:type(t)
-    parent.type(self, t)
-    self.cost_container:type(t)
-end
+-- function Accumulator:type(t)
+--     parent.type(self, t)
+-- end
