@@ -102,11 +102,10 @@ print = function(...)
 end
 
 
-local scheduler_iteration = torch.zeros(1)
-
 -- this is dumb, but it's the easiest and most portable way
 -- to make this a global variable
 opt.current_head_cost = 0
+opt.current_scheduler_iteration = 0
 
 local sample_batch = data_loaders.load_random_atari_batch('train')
 local batch_timesteps = #sample_batch
@@ -167,6 +166,7 @@ params, grad_params = model:getParameters()
 
 
 local heads_predictor = model.modules[1]:findModules('nn.Accumulator')[1]
+local sharpener = model.modules[1]:findModules('nn.ScheduledWeightSharpener')[1]
 function validate()
     local loss = 0
     model:evaluate()
@@ -239,7 +239,7 @@ local loss0 = nil
 -- print(cutorch.getMemoryUsage(cutorch.getDevice()))
 
 for step = 1, iterations do
-    scheduler_iteration[1] = step
+    opt.current_scheduler_iteration = step
     epoch = step / opt.num_train_batches
 
     opt.current_head_cost = opt.cost_per_head * (1 - opt.cost_decay_rate ^ epoch)
@@ -271,6 +271,8 @@ for step = 1, iterations do
     -- every now and then or on last iteration
     if step % opt.eval_val_every == 0 or step == iterations then
         print(string.format("Head cost at epoch %.3f: %.6f", epoch, opt.current_head_cost))
+        print(string.format("Weight sharpener exponent at epoch %.3f: %.12f", epoch, sharpener:getP()))
+
         -- evaluate loss on validation data
         local val_loss = validate() -- 2 = validation
         val_losses[step] = val_loss

@@ -47,7 +47,7 @@ local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, 
 
     -- create the rest of the heads
     for i = 2, max_heads do
-        heads[i] = heads[1]:clone('iteration_container')
+        heads[i] = heads[1]:clone()
         heads[i]:reset()
     end
 
