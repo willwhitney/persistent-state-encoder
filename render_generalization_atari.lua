@@ -136,8 +136,8 @@ for _, network in ipairs(networks) do
                     -- local max_weight, varying_index = weights:max(1)
 
                     local num_frames = 20
-                    local min_change = -1
-                    local max_change = 1
+                    local min_change = -2.5
+                    local max_change = 2.5
 
                     local mutated_input = torch.Tensor(num_frames, base_embedding:size(1))
 

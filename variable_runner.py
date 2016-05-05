@@ -21,10 +21,31 @@ base_networks = {
 # Don't give it a save name - that gets generated for you
 # jobs = [
 #         {
-#             "import": "onestep",
+#             "learning_rate": 2e-4,
+#             "max_heads": 20,
+#             "cost_decay_rate": 0.95,
+#             "cost_per_head": 0.1,
+
+#             "gpu": True,
 #         },
-#
-#
+#         {
+#             "learning_rate": 2e-4,
+#             "max_heads": 20,
+#             "cost_decay_rate": 0.9,
+#             "cost_per_head": 0.01,
+
+#             "gpu": True,
+#         },
+#         {
+#             "learning_rate": 2e-4,
+#             "max_heads": 20,
+#             "cost_decay_rate": 0.95,
+#             "cost_per_head": 0.01,
+
+#             "gpu": True,
+#         },
+
+
 #     ]
 
 jobs = []
@@ -32,7 +53,7 @@ jobs = []
 learning_rate_options = [2e-4]
 max_heads_options = [20]
 cost_decay_rate_options = [0.9, 0.95]
-cost_per_head_options = [0.1, 0.01]
+cost_per_head_options = [0.001, 0.0001]
 
 for learning_rate in learning_rate_options:
     for max_heads in max_heads_options:
