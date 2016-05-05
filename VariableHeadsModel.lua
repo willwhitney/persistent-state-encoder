@@ -3,17 +3,17 @@ require 'nngraph'
 Encoder = require 'VariableHeadsEncoder'
 BasicEncoder = require 'BasicEncoder'
 
-local VariableHeadsModel = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads, timesteps)
+local VariableHeadsModel = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, encoder_noise, head_cost, max_heads, timesteps)
 
     local inputs = {}
     for timestep = 1, timesteps do
         table.insert(inputs, nn.Identity()():annotate{name="input_step_"..timestep})
     end
 
-    local state_initialization_encoder = BasicEncoder(dim_hidden, color_channels, feature_maps)
+    local state_initialization_encoder = BasicEncoder(dim_hidden, color_channels, feature_maps, encoder_noise)
     state_initialization_encoder = state_initialization_encoder(inputs[1]):annotate{name="state_initializer"}
 
-    local encoder_prototype = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
+    local encoder_prototype = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, encoder_noise, head_cost, max_heads)
     -- local decoder_prototype = Decoder(dim_hidden, color_channels, feature_maps)
 
     if opt.gpu then
@@ -33,7 +33,7 @@ local VariableHeadsModel = function(dim_hidden, color_channels, feature_maps, no
     -- thus we start with 3
     local encoder_clones = {encoder_prototype}
     for _ = 3, timesteps do
-        local clone = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
+        local clone = Encoder(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, encoder_noise, head_cost, max_heads)
         if opt.gpu then
             clone:cuda()
         end

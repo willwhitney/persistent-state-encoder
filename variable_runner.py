@@ -52,22 +52,25 @@ jobs = []
 
 learning_rate_options = [2e-4]
 max_heads_options = [20]
-cost_decay_rate_options = [0.9, 0.95]
-cost_per_head_options = [0.001, 0.0001]
+cost_decay_rate_options = [0.95]
+cost_per_head_options = [1e-3, 1e-4, 1e-5]
+encoder_noise_options = [0, 0.1]
 
 for learning_rate in learning_rate_options:
     for max_heads in max_heads_options:
         for cost_decay_rate in cost_decay_rate_options:
             for cost_per_head in cost_per_head_options:
-                job = {
-                        "learning_rate": learning_rate,
-                        "max_heads": max_heads,
-                        "cost_decay_rate": cost_decay_rate,
-                        "cost_per_head": cost_per_head,
+                for encoder_noise in encoder_noise_options:
+                    job = {
+                            "learning_rate": learning_rate,
+                            "max_heads": max_heads,
+                            "cost_decay_rate": cost_decay_rate,
+                            "cost_per_head": cost_per_head,
+                            "encoder_noise": encoder_noise,
 
-                        "gpu": True,
-                    }
-                jobs.append(job)
+                            "gpu": True,
+                        }
+                    jobs.append(job)
 
 
 if dry_run:
@@ -76,7 +79,7 @@ else:
     print "Starting jobs:"
 
 for job in jobs:
-    jobname = "variable"
+    jobname = "var_newdata"
     flagstring = ""
     for flag in job:
         if isinstance(job[flag], bool):

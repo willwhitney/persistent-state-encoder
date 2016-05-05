@@ -9,7 +9,7 @@ require 'Accumulator'
 
 BasicEncoder = require('BasicEncoder')
 
-local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
+local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, encoder_noise, head_cost, max_heads)
     -- print("dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads")
     -- print(dim_hidden, color_channels, feature_maps, noise, sharpening_rate, scheduler_iteration, head_cost, max_heads)
 
@@ -22,7 +22,7 @@ local VariableHeadsEncoder = function(dim_hidden, color_channels, feature_maps, 
 
     -- make two copies of an encoder
 
-    local encoder = BasicEncoder(dim_hidden, color_channels, feature_maps)
+    local encoder = BasicEncoder(dim_hidden, color_channels, feature_maps, encoder_noise)
 
     encoder = encoder(input_frame):annotate{name="encoder"}
 

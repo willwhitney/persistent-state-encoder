@@ -1,4 +1,4 @@
-local BasicEncoder = function(dim_hidden, color_channels, feature_maps)
+local BasicEncoder = function(dim_hidden, color_channels, feature_maps, noise)
     local filter_size = 5
 
     local encoder = nn.Sequential()
@@ -16,6 +16,8 @@ local BasicEncoder = function(dim_hidden, color_channels, feature_maps)
 
     encoder:add(nn.Reshape((feature_maps/4) * 22*16))
     encoder:add(nn.Linear((feature_maps/4) * 22*16, dim_hidden))
+
+    encoder:add(nn.Noise(noise))
 
     return encoder
 end

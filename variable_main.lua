@@ -40,7 +40,8 @@ cmd:option('--dim_hidden', 200, 'dimension of the representation layer')
 cmd:option('--feature_maps', 64, 'number of feature maps')
 cmd:option('--color_channels', 3, '1 for grayscale, 3 for color')
 cmd:option('--sharpening_rate', 10, 'how fast to sharpen the heads')
-cmd:option('--noise', 0.1, 'variance of added Gaussian noise')
+cmd:option('--noise', 0.1, 'variance of added Gaussian noise in head outputs')
+cmd:option('--encoder_noise', 0, 'variance of added Gaussian noise in encodings')
 
 
 cmd:option('--max_epochs', 50, 'number of full passes through the training data')
@@ -112,7 +113,9 @@ local batch_timesteps = #sample_batch
 -- local batch_timesteps = 10
 
 model = nn.Sequential()
-encoder = Model(opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise, opt.sharpening_rate, scheduler_iteration, head_cost, opt.max_heads, batch_timesteps)
+encoder = Model(
+        opt.dim_hidden, opt.color_channels, opt.feature_maps, opt.noise,
+        opt.sharpening_rate, opt.encoder_noise, head_cost, opt.max_heads, batch_timesteps)
 model:add(encoder)
 
 join = nn.JoinTable(1)
@@ -270,7 +273,7 @@ for step = 1, iterations do
 
     -- every now and then or on last iteration
     if step % opt.eval_val_every == 0 or step == iterations then
-        print(string.format("Head cost at epoch %.3f: %.6f", epoch, opt.current_head_cost))
+        print(string.format("Head cost at epoch %.3f: %.12f", epoch, opt.current_head_cost))
         print(string.format("Weight sharpener exponent at epoch %.3f: %.12f", epoch, sharpener:getP()))
 
         -- evaluate loss on validation data
